@@ -1,6 +1,6 @@
 [project]
 name = "kalshi-async-plus"
-version = "0.0.3"
+version = "0.0.4"
 description = "Extended kalshi sdk with methods you were missing so much."
 readme = "README.md"
 authors = [
@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "kalshi-python-async>=3.12.0",
+    "kalshi-python-async>=3.13.0",
 ]
 
 [build-system]

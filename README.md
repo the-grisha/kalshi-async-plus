@@ -24,20 +24,30 @@ config = Configuration(
 client = KalshiClient(config)
 ```
 
-### 2. High-Precision Sport Filtering
-Fetch events for specific sports with perfect parity to the Kalshi website. Our `get_all_events` method handles pagination and official metadata filtering for you.
+### 2. High-Precision Sport & Scope Filtering
+Fetch events with perfect parity to the Kalshi website using type-safe enums.
 
 ```python
-from kalshi_async_plus import KalshiClient, Sport
+from kalshi_async_plus import KalshiClient, Sport, Scope
 
 async def main():
     async with KalshiClient(config) as client:
-        # Uses the Sport enum for type-safety and auto-completion
-        baseball_events = await client.get_all_events(sport=Sport.BASEBALL, status="open")
+        # 1. Fetch all baseball games
+        baseball_events = await client.get_all_events(
+            sport=Sport.BASEBALL, 
+            status="open"
+        )
         
-        for event in baseball_events:
-            print(f"Baseball Game: {event.title}")
+        # 2. Granular filtering: Just Tennis "Games" (skips Futures/Set Winners)
+        tennis_games = await client.get_all_events(
+            sport=Sport.TENNIS,
+            scope=Scope.GAMES,
+            status="open"
+        )
+        
+        for event in tennis_games:
+            print(f"Match: {event.title}")
 ```
 
-### 3. Linked Debugging
-When you set `debug=True` in your configuration, `kalshi-async-plus` automatically activates its internal high-level logging to show you exactly how your filters and pagination are performing.
+### 3. Professional Logging & Debugging
+When you set `debug=True` in your configuration, `kalshi-async-plus` automatically activates its internal high-level logging. We've cleaned up propagation so you get clean, singular log entries in your console.

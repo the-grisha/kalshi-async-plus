@@ -1,9 +1,8 @@
 import asyncio
 import logging
-import sys
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Union
 from kalshi_python_async import KalshiClient as BaseKalshiClient
-from kalshi_async_plus.constants import Sport
+from kalshi_async_plus.constants import Sport, Scope
 
 # Set up a logger for the "Plus" features
 logger = logging.getLogger("kalshi_async_plus")
@@ -17,29 +16,32 @@ class KalshiClient(BaseKalshiClient):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Link our logger so it respects the official config.debug flag
+        # Link our logger so it respects the official config.debug flag.
+        # We don't add handlers here to avoid double-logging; we rely on 
+        # the user's standard logging configuration (e.g. logging.basicConfig).
         self.configuration.logger["plus_logger"] = logger
         
         if self.configuration.debug:
             logger.setLevel(logging.DEBUG)
-            # If no handlers exist, add a simple console handler so debug prints actually appear
-            if not logger.handlers:
-                handler = logging.StreamHandler(sys.stdout)
-                handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
-                logger.addHandler(handler)
         else:
             logger.setLevel(logging.WARNING)
 
-    async def get_all_events(self, sport: Optional[Sport] = None, **kwargs: Any) -> List[Any]:
+    async def get_all_events(
+        self, 
+        sport: Optional[Sport] = None, 
+        scope: Optional[Union[Scope, List[Scope]]] = None,
+        **kwargs: Any
+    ) -> List[Any]:
         """
         Automatically handles pagination/cursors to return a complete list of events.
         
-        If `sport` is provided, it filters the results strictly against 
-        the official competition list returned by the Kalshi Search API.
+        If `sport` is provided, it filters by official competition metadata.
+        If `scope` is provided, it filters by competition scope.
         """
         official_competitions = None
+        target_scopes = None
         
-        # 1. Fetch official filters if a sport is specified
+        # 1. Prepare Sport Filter
         if sport:
             logger.debug(f"Filtering events for sport: {sport}")
             try:
@@ -60,7 +62,14 @@ class KalshiClient(BaseKalshiClient):
                 logger.error(f"Failed to fetch official sport filters: {e}")
                 return []
 
-        # 2. Standard pagination logic for fetching pages of events
+        # 2. Prepare Scope Filter
+        if scope:
+            if isinstance(scope, Scope):
+                target_scopes = {scope.value.lower()}
+            else:
+                target_scopes = {s.value.lower() for s in scope}
+
+        # 3. Standard pagination logic for fetching pages of events
         all_events = []
         cursor = None
         
@@ -75,13 +84,35 @@ class KalshiClient(BaseKalshiClient):
             if not cursor:
                 break
         
-        # 3. Apply Sport filtering if requested
-        if official_competitions is not None:
-            filtered = [
-                event for event in all_events
-                if (getattr(event, 'product_metadata', {}) or {}).get('competition', '').lower() in official_competitions
-            ]
-            logger.debug(f"Metadata Filter: Found {len(filtered)} events for {sport}.")
-            return filtered
+        # 4. Apply Filters
+        filtered_events = all_events
+        
+        if official_competitions is not None or target_scopes is not None:
+            final_list = []
+            for event in all_events:
+                metadata = getattr(event, 'product_metadata', {}) or {}
                 
-        return all_events
+                # Check sport parity
+                sport_match = True
+                if official_competitions is not None:
+                    event_comp = (metadata.get('competition') or "").lower()
+                    sport_match = event_comp in official_competitions
+                
+                # Check scope parity (handles common plural/singular API inconsistencies)
+                scope_match = True
+                if target_scopes is not None:
+                    event_scope = (metadata.get('competition_scope') or "").lower()
+                    scope_match = any(
+                        event_scope == ts or 
+                        event_scope == ts.rstrip('s') or 
+                        event_scope + 's' == ts
+                        for ts in target_scopes
+                    )
+                
+                if sport_match and scope_match:
+                    final_list.append(event)
+            
+            filtered_events = final_list
+            logger.debug(f"Filter Results: {len(filtered_events)} events matched (Sport: {sport}, Scope: {scope})")
+                
+        return filtered_events

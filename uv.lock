@@ -242,14 +242,14 @@ wheels = [
 
 [[package]]
 name = "kalshi-async-plus"
-version = "0.0.3"
+version = "0.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "kalshi-python-async" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "kalshi-python-async", specifier = ">=3.12.0" }]
+requires-dist = [{ name = "kalshi-python-async", specifier = ">=3.13.0" }]
 
 [[package]]
 name = "kalshi-python-async"
